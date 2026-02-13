@@ -111,17 +111,17 @@ if __name__ == '__main__':
             print(str(t_valid) + ' ' + str(t_test) + '\n')
             t0 = time.time()
             model.train()
-    
+
         if epoch == args.num_epochs:
-            folder = args.dataset
-            fname = 'SASRec.epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.pth'
-            fname = fname.format(args.num_epochs, args.lr, args.num_blocks, args.num_heads, args.hidden_units, args.maxlen)
-            if not os.path.exists(os.path.join(folder, fname)):
-                try:
-                    os.makedirs(os.path.join(folder))
-                except:
-                    print()
-            torch.save([model.kwargs, model.state_dict()], os.path.join(folder, fname))
+            folder = '/kaggle/working/checkpoints' # Lưu vào thư mục riêng để dễ quản lý
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        
+            fname = 'SASRec_{}.pth'.format(args.dataset)
+            save_path = os.path.join(folder, fname)
+        
+            torch.save([model.kwargs, model.state_dict()], save_path)
+            print(f"Model saved at {save_path}")
     
     sampler.close()
     print("Done")

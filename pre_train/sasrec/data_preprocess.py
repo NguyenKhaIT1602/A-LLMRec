@@ -4,7 +4,7 @@ import pickle
 from tqdm import tqdm
 from collections import defaultdict
 
-def preprocess_kaggle(fname):
+def preprocess(fname):
     countU = defaultdict(lambda: 0)
     countP = defaultdict(lambda: 0)
     line_count = 0

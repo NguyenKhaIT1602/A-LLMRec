@@ -153,20 +153,24 @@ def data_partition(fname, path=None):
     user_train = {}
     user_valid = {}
     user_test = {}
-    # assume user/item index starting from 1
     
-    # f = open('./pre_train/sasrec/data/%s.txt' % fname, 'r')
-    if path == None:
-        f = open('../../data/amazon/%s.txt' % fname, 'r')
-    else:
-        f = open(path, 'r')
-    for line in f:
-        u, i = line.rstrip().split(' ')
-        u = int(u)
-        i = int(i)
-        usernum = max(u, usernum)
-        itemnum = max(i, itemnum)
-        User[u].append(i)
+    # Mặc định đường dẫn trên Kaggle nếu không cung cấp path
+    if path is None:
+        path = '/kaggle/working/%s.txt' % fname
+    
+    print(f"Loading data from: {path}")
+    
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Không tìm thấy file dữ liệu tại {path}. Hãy chạy tiền xử lý trước.")
+
+    with open(path, 'r') as f:
+        for line in f:
+            u, i = line.rstrip().split(' ')
+            u = int(u)
+            i = int(i)
+            usernum = max(u, usernum)
+            itemnum = max(i, itemnum)
+            User[u].append(i)
 
     for user in User:
         nfeedback = len(User[user])
@@ -176,10 +180,9 @@ def data_partition(fname, path=None):
             user_test[user] = []
         else:
             user_train[user] = User[user][:-2]
-            user_valid[user] = []
-            user_valid[user].append(User[user][-2])
-            user_test[user] = []
-            user_test[user].append(User[user][-1])
+            user_valid[user] = [User[user][-2]]
+            user_test[user] = [User[user][-1]]
+            
     return [user_train, user_valid, user_test, usernum, itemnum]
 
 # TODO: merge evaluate functions for test and val set
