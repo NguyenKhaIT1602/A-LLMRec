@@ -1,3 +1,4 @@
+%%writefile /kaggle/working/A-LLMRec/pre_train/sasrec/data_preprocess.py
 import os
 import json
 import pickle
@@ -107,4 +108,7 @@ def preprocess(fname):
     print(f"Hoàn thành! File đã lưu tại: {output_dir}")
 
 # Chạy thử với Movies_and_TV
-preprocess_kaggle("Movies_and_TV")
+if __name__ == "__main__":
+    import sys
+    dataset_name = sys.argv[1] if len(sys.argv) > 1 else "Movies_and_TV"
+    preprocess(dataset_name)
