@@ -1,3 +1,118 @@
+# %%writefile /kaggle/working/A-LLMRec/pre_train/sasrec/data_preprocess.py
+# import os
+# import json
+# import pickle
+# from tqdm import tqdm
+# from collections import defaultdict
+
+# def preprocess(fname):
+#     countU = defaultdict(lambda: 0)
+#     countP = defaultdict(lambda: 0)
+#     line_count = 0
+
+#     # 1. Cấu hình đường dẫn trên Kaggle
+#     input_dir_data = "/kaggle/input/dataai/Movies_and_TV.json"
+#     input_dir_meta = "/kaggle/input/dataai/meta_Movies_and_TV.json"
+
+#     output_dir = "/kaggle/working"
+    
+#     review_file = os.path.join(input_dir_data, f"{fname}.json")
+#     meta_file = os.path.join(input_dir_meta, f"meta_{fname}.json")
+    
+#     # 2. Đếm số tương tác (Đọc file JSON thuần, không dùng gzip)
+#     print(f"--- Đang đọc file review: {review_file} ---")
+#     with open(review_file, 'r') as f:
+#         for line in tqdm(f):
+#             l = json.loads(line)
+#             # Lọc theo overall cho Beauty và Toys (nếu cần)
+#             if ('Beauty' in fname) or ('Toys' in fname):
+#                 if l.get('overall', 0) < 3:
+#                     continue
+            
+#             countU[l['reviewerID']] += 1
+#             countP[l['asin']] += 1
+
+#     # 3. Đọc dữ liệu Meta (Metadata)
+#     print(f"--- Đang đọc file meta: {meta_file} ---")
+#     meta_dict = {}
+#     with open(meta_file, 'r') as f:
+#         for line in tqdm(f):
+#             try:
+#                 # Một số file meta có thể bị lỗi dòng cuối hoặc định dạng, dùng try-except cho an toàn
+#                 l = json.loads(line)
+#                 meta_dict[l['asin']] = l
+#             except:
+#                 continue
+
+#     # 4. Xử lý chính
+#     usermap = dict()
+#     usernum = 0
+#     itemmap = dict()
+#     itemnum = 0
+#     User = dict()
+#     name_dict = {'title': {}, 'description': {}}
+    
+#     threshold = 4 if ('Beauty' in fname) or ('Toys' in fname) else 5
+
+#     print("--- Đang xử lý mapping và tạo tập tin văn bản ---")
+#     with open(review_file, 'r') as f:
+#         for line in tqdm(f):
+#             l = json.loads(line)
+#             asin = l['asin']
+#             rev = l['reviewerID']
+#             time = l['unixReviewTime']
+
+#             if countU[rev] < threshold or countP[asin] < threshold:
+#                 continue
+
+#             if rev not in usermap:
+#                 usernum += 1
+#                 usermap[rev] = usernum
+#                 User[usernum] = []
+            
+#             userid = usermap[rev]
+
+#             if asin not in itemmap:
+#                 itemnum += 1
+#                 itemmap[asin] = itemnum
+                
+#                 # Lưu thông tin text cho item
+#                 if asin in meta_dict:
+#                     meta_item = meta_dict[asin]
+#                     name_dict['title'][itemnum] = meta_item.get('title', 'No Title')
+#                     desc = meta_item.get('description', [])
+#                     name_dict['description'][itemnum] = desc[0] if (isinstance(desc, list) and len(desc) > 0) else 'Empty description'
+#                 else:
+#                     name_dict['title'][itemnum] = 'No Title'
+#                     name_dict['description'][itemnum] = 'Empty description'
+
+#             itemid = itemmap[asin]
+#             User[userid].append([time, itemid])
+
+#     # 5. Lưu kết quả ra /kaggle/working
+#     print(f"--- Đang lưu kết quả. User: {usernum}, Item: {itemnum} ---")
+    
+#     # Lưu file pickle chứa name_dict
+#     output_pickle = os.path.join(output_dir, f'{fname}_text_name_dict.pkl')
+#     with open(output_pickle, 'wb') as f:
+#         pickle.dump(name_dict, f)
+    
+#     # Sắp xếp và lưu file tương tác .txt
+#     output_txt = os.path.join(output_dir, f'{fname}.txt')
+#     with open(output_txt, 'w') as f:
+#         for userid in User.keys():
+#             User[userid].sort(key=lambda x: x[0])
+#             for interaction in User[userid]:
+#                 f.write(f'{userid} {interaction[1]}\n')
+
+#     print(f"Hoàn thành! File đã lưu tại: {output_dir}")
+
+# # Chạy thử với Movies_and_TV
+# if __name__ == "__main__":
+#     import sys
+#     dataset_name = sys.argv[1] if len(sys.argv) > 1 else "Movies_and_TV"
+#     preprocess(dataset_name)
+
 %%writefile /kaggle/working/A-LLMRec/pre_train/sasrec/data_preprocess.py
 import os
 import json
@@ -8,106 +123,92 @@ from collections import defaultdict
 def preprocess(fname):
     countU = defaultdict(lambda: 0)
     countP = defaultdict(lambda: 0)
-    line_count = 0
 
-    # 1. Cấu hình đường dẫn trên Kaggle
+    # Cấu hình đường dẫn trên Kaggle (Khớp với dataset bạn đã upload)
     input_dir_data = "/kaggle/input/dataai/Movies_and_TV.json"
     input_dir_meta = "/kaggle/input/dataai/meta_Movies_and_TV.json"
+    
+    # Đường dẫn đầu ra mà SASRec và A-LLMRec mong đợi
+    # Lưu ý: SASRec cần file .txt ở ../../data/amazon/
+    output_dir_txt = "../../data/amazon/"
+    output_dir_pkl = "/kaggle/working/data/amazon/" # Dành cho Stage 1
+    
+    os.makedirs(output_dir_txt, exist_ok=True)
+    os.makedirs(output_dir_pkl, exist_ok=True)
 
-    output_dir = "/kaggle/working"
+    review_file = input_dir_data
+    meta_file = input_dir_meta
     
-    review_file = os.path.join(input_dir_data, f"{fname}.json")
-    meta_file = os.path.join(input_dir_meta, f"meta_{fname}.json")
-    
-    # 2. Đếm số tương tác (Đọc file JSON thuần, không dùng gzip)
-    print(f"--- Đang đọc file review: {review_file} ---")
+    print(f"--- Đang quét sơ bộ file review: {review_file} ---")
     with open(review_file, 'r') as f:
         for line in tqdm(f):
-            l = json.loads(line)
-            # Lọc theo overall cho Beauty và Toys (nếu cần)
-            if ('Beauty' in fname) or ('Toys' in fname):
-                if l.get('overall', 0) < 3:
-                    continue
-            
-            countU[l['reviewerID']] += 1
-            countP[l['asin']] += 1
+            try:
+                l = json.loads(line)
+                countU[l['reviewerID']] += 1
+                countP[l['asin']] += 1
+            except: continue
 
-    # 3. Đọc dữ liệu Meta (Metadata)
     print(f"--- Đang đọc file meta: {meta_file} ---")
     meta_dict = {}
     with open(meta_file, 'r') as f:
         for line in tqdm(f):
             try:
-                # Một số file meta có thể bị lỗi dòng cuối hoặc định dạng, dùng try-except cho an toàn
                 l = json.loads(line)
                 meta_dict[l['asin']] = l
-            except:
-                continue
+            except: continue
 
-    # 4. Xử lý chính
-    usermap = dict()
-    usernum = 0
-    itemmap = dict()
-    itemnum = 0
-    User = dict()
+    usermap, itemmap, User = dict(), dict(), dict()
+    usernum, itemnum = 0, 0
     name_dict = {'title': {}, 'description': {}}
-    
-    threshold = 4 if ('Beauty' in fname) or ('Toys' in fname) else 5
+    threshold = 5 
 
-    print("--- Đang xử lý mapping và tạo tập tin văn bản ---")
+    print("--- Đang xử lý mapping và tạo dữ liệu huấn luyện ---")
     with open(review_file, 'r') as f:
         for line in tqdm(f):
-            l = json.loads(line)
-            asin = l['asin']
-            rev = l['reviewerID']
-            time = l['unixReviewTime']
+            try:
+                l = json.loads(line)
+                asin, rev, time = l['asin'], l['reviewerID'], l['unixReviewTime']
+                if countU[rev] < threshold or countP[asin] < threshold: continue
 
-            if countU[rev] < threshold or countP[asin] < threshold:
-                continue
-
-            if rev not in usermap:
-                usernum += 1
-                usermap[rev] = usernum
-                User[usernum] = []
-            
-            userid = usermap[rev]
-
-            if asin not in itemmap:
-                itemnum += 1
-                itemmap[asin] = itemnum
+                if rev not in usermap:
+                    usernum += 1
+                    usermap[rev] = usernum
+                    User[usernum] = []
                 
-                # Lưu thông tin text cho item
-                if asin in meta_dict:
-                    meta_item = meta_dict[asin]
-                    name_dict['title'][itemnum] = meta_item.get('title', 'No Title')
-                    desc = meta_item.get('description', [])
-                    name_dict['description'][itemnum] = desc[0] if (isinstance(desc, list) and len(desc) > 0) else 'Empty description'
-                else:
-                    name_dict['title'][itemnum] = 'No Title'
-                    name_dict['description'][itemnum] = 'Empty description'
+                userid = usermap[rev]
+                if asin not in itemmap:
+                    itemnum += 1
+                    itemmap[asin] = itemnum
+                    if asin in meta_dict:
+                        meta_item = meta_dict[asin]
+                        name_dict['title'][itemnum] = meta_item.get('title', 'No Title')
+                        desc = meta_item.get('description', [])
+                        name_dict['description'][itemnum] = desc[0] if (isinstance(desc, list) and len(desc) > 0) else 'Empty description'
+                    else:
+                        name_dict['title'][itemnum] = 'No Title'
+                        name_dict['description'][itemnum] = 'Empty description'
 
-            itemid = itemmap[asin]
-            User[userid].append([time, itemid])
+                itemid = itemmap[asin]
+                User[userid].append([time, itemid])
+            except: continue
 
-    # 5. Lưu kết quả ra /kaggle/working
-    print(f"--- Đang lưu kết quả. User: {usernum}, Item: {itemnum} ---")
-    
-    # Lưu file pickle chứa name_dict
-    output_pickle = os.path.join(output_dir, f'{fname}_text_name_dict.pkl')
-    with open(output_pickle, 'wb') as f:
-        pickle.dump(name_dict, f)
-    
-    # Sắp xếp và lưu file tương tác .txt
-    output_txt = os.path.join(output_dir, f'{fname}.txt')
+    # Lưu file .txt cho SASRec
+    output_txt = os.path.join(output_dir_txt, f'{fname}.txt')
     with open(output_txt, 'w') as f:
         for userid in User.keys():
             User[userid].sort(key=lambda x: x[0])
             for interaction in User[userid]:
                 f.write(f'{userid} {interaction[1]}\n')
 
-    print(f"Hoàn thành! File đã lưu tại: {output_dir}")
+    # Lưu file .pkl cho Stage 1 A-LLMRec
+    output_pickle = os.path.join(output_dir_pkl, f'{fname}_text_name_dict.pkl')
+    with open(output_pickle, 'wb') as f:
+        pickle.dump(name_dict, f)
 
-# Chạy thử với Movies_and_TV
+    print(f"Hoàn thành! User: {usernum}, Item: {itemnum}")
+    print(f"File TXT: {output_txt}")
+    print(f"File PKL: {output_pickle}")
+
 if __name__ == "__main__":
     import sys
     dataset_name = sys.argv[1] if len(sys.argv) > 1 else "Movies_and_TV"
